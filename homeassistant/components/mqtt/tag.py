@@ -129,12 +129,17 @@ class MQTTTagScanner(MqttDiscoveryDeviceUpdateMixin):
     async def async_update(self, discovery_data: MQTTDiscoveryPayload) -> None:
         """Handle MQTT tag discovery updates."""
         # Update tag scanner
-        config: DiscoveryInfoType = DISCOVERY_SCHEMA(discovery_data)
+        try:
+            config: DiscoveryInfoType = DISCOVERY_SCHEMA(discovery_data)
+        except probatio.Invalid as err:
+            async_handle_schema_error(discovery_data, err)
+            return
+        # Update the device first, so a failing update does not change the scanner
+        update_device(self.hass, self._config_entry, config)
         self._config = config
         self._value_template = MqttValueTemplate(
             config.get(CONF_VALUE_TEMPLATE)
         ).async_render_with_possible_json_value
-        update_device(self.hass, self._config_entry, config)
         await self.subscribe_topics()
 
     @callback
